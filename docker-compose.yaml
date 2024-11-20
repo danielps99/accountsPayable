@@ -1,0 +1,43 @@
+services:
+  accounts-payable-api:
+    build:
+      network: host
+      context: ./
+      dockerfile: ${DOCKERFILE:-Dockerfile}
+    container_name: accounts-payable-api
+    image: bdws/accounts-payable-api:1.0
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    depends_on:
+      accounts-payable-db:
+        condition: service_healthy
+    environment:
+      - ADDITIONAL_OPTS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -Xmx256m -Xms128m -XX:MaxMetaspaceSize=128m
+      - PROFILE=devdocker
+      - DB_NAME
+      - DB_USER
+      - DB_PASSWORD
+
+  accounts-payable-db:
+    image: postgres:15
+    container_name: accounts-payable-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME} >/dev/null 2>&1"]
+      start_period: 2s
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
